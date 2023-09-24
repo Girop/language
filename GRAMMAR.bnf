@@ -1,0 +1,19 @@
+program := statement*;
+
+bool := "true" | "false";
+number := [1-9], [0-9]*;
+
+expression := binary_log;
+binary_log := binary_comp ("||" | "&&" binary_comp)*;
+binary_comp := binary_add ("==" | "!=" | "<=" | "<" | ">" | ">=" binary_add)*;
+binary_add := binary_mul ("+" | "-" binary_mul)*;
+binary_mul := primary ("*" | "/" | "%" primary)*;
+primary := (("-")? number) | (("!")? bool) | "(" expression ")";
+
+
+
+statement := expression-statement | print-statement;
+
+expression-statement := expression ";";
+print-statement := "print" expression-statement;
+
