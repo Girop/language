@@ -12,17 +12,6 @@ StringObj* get_string(Value value) {
     return (StringObj*) value.as.object;
 }
 
-Value val_from_num(double number) {
-    return (Value) {NumberValue, number};
-}
-
-Value val_from_bool(bool boolean) {
-    return (Value) {BoolValue, boolean};
-}
-Value val_from_nil(void) {
-    return (Value) {NilValue};
-}
-
 // Heap objects stuff goes bellow
 StringObj* create_string(char* value, size_t size) {
     StringObj* ptr = malloc(sizeof(StringObj) + sizeof(char) * (size + 1));

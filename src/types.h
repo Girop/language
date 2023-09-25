@@ -19,11 +19,11 @@ struct StringObj {
     char text[];
 };
 
+// TODO Rethink which string utils will be usefull
 StringObj* create_string(char* value, size_t size);
 bool compare_string(StringObj* first, StringObj* second);
 StringObj* concat_strings(StringObj* first, StringObj* second);
 void free_string(StringObj* target);
-
 
 typedef enum {
     NumberValue,
@@ -41,11 +41,13 @@ typedef struct {
     } as;
 } Value;
 
+inline bool is_number(Value value) {
+    return value.type == NumberValue;
+}
+inline bool is_bool(Value val) {
+    return val.type == BoolValue;
+}
 bool is_string(Value value);
 StringObj* get_string(Value value);
-
-Value val_from_num(double number);
-Value val_from_bool(bool boolean);
-Value val_from_nil(void);
 
 #endif

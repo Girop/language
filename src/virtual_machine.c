@@ -44,82 +44,181 @@ static void runtime_error(const char* format, ...) {
 #define READ_BYTE (*(machine.ip++)) 
 #define READ_CONSTANT (machine.chunk->constants.values[READ_BYTE])
 
-#define bin_num_operand(operator) \
+#define CREATE_NUM_VAL(num) (Value) {.type = NumberValue, .as.number = (num)}
+#define CREATE_BOOL_VAL(boo) (Value) {.type = BoolValue, .as.boolean = (boo)}
+#define CREATE_OBJ_VAL(str) (Value) {.type = ObjValue, .as.object = ((Obj*) (str))}
+
+static bool compare_string_values(Value a, Value b) { 
+    return compare_string((StringObj*) a.as.object, (StringObj*) b.as.object);
+}
+
+#define BINARY_NUMBER_OPERATION(operator) \
     do { \
     Value b = pop_stack(); \
     Value a = pop_stack(); \
                           \
     if (a.type != NumberValue || b.type != NumberValue) { \
-        runtime_error("both operands are required to be numbers"); \
+        runtime_error("Both operands are required to be numbers"); \
+        return INTEPRET_ERROR;\
     }  \
-    push_stack(val_from_num(a.as.number operator b.as.number) ); \
+    push_stack(CREATE_NUM_VAL(a.as.number operator b.as.number) ); \
 } while (0)
 
 
-static void modulo_operand(void) {
-    Value b = pop_stack(); 
-    Value a = pop_stack(); 
-        
-    if (a.type != NumberValue || b.type != NumberValue) {
-        runtime_error("both operands are required to be numbers");
+#define BINARY_BOOLEAN_OPEARTOR(operator) \
+    do { \
+        Value b = pop_stack(); \
+        Value a = pop_stack();\
+        \
+        if (a.type != BoolValue || b.type != BoolValue) { \
+            runtime_error("Both operands are required to be booleans"); \
+            return INTEPRET_ERROR; \
+        }\
+        push_stack(CREATE_BOOL_VAL(a.as.boolean operator b.as.boolean));\
+    } while (0)
+
+#define COMPARISON_OPERATOR(oper) \
+    do { \
+        Value b = pop_stack(); \
+        Value a = pop_stack(); \
+        if (a.type != b.type) { \
+            runtime_error("Can't compare different types"); \
+            return INTEPRET_ERROR; \
+        } \
+        push_stack(CREATE_BOOL_VAL(a oper b)); \
+    } while (0)
+
+#define NUMBER_COMPARSION(operator) \
+    do {\
+        Value b = pop_stack(); \
+        Value a = pop_stack(); \
+        if (!(is_number(a) && is_number(b))) { \
+            runtime_error("Comparison of this type can only be made on numbers");\
+            return INTEPRET_ERROR; \
+        }\
+        push_stack(CREATE_BOOL_VAL(a.as.number operator b.as.number)); \
+    } while (0)
+
+static void print_value(Value val) {
+    switch (val.type) {
+        case NumberValue:
+            printf("Number<%f>\n", val.as.number);
+        case NilValue:
+            printf("Nil\n");
+            break;
+        case BoolValue:
+            printf("Bool<%s>\n", val.as.boolean ? "true" : "false");
+            break;
+        case ObjValue:
+            printf("Object<TODO>,\n");
+            break;
     }
-    long long int res = ((long long int) a.as.number) % ((long long int) b.as.number);
-    push_stack(val_from_num((double) res));
 }
 
-static void num_bool_binary(void) {
-    Value b = pop_stack();
-    Value a = pop_stack();
-
-    if (a.type != b.type) {
-        push_stack(val_from_bool(false));
-        return;
-    }
-     
-}
-
-// TODO finish other instructions
 static InterpretResult run(void) {
     for (;;) {
         switch (READ_BYTE) {
-            case OP_ADD: bin_num_operand(+); break;
-            case OP_SUB: bin_num_operand(-); break;
-            case OP_MUL: bin_num_operand(*); break;
-            case OP_DIV: bin_num_operand(/); break;
-            case OP_MOD: modulo_operand(); break;
-            
+            case OP_OR: BINARY_BOOLEAN_OPEARTOR(||); break;
+            case OP_AND: BINARY_BOOLEAN_OPEARTOR(&&); break;
+            case OP_NOT: {
+                Value a = pop_stack();
+                if (!is_number(a)) {
+                    runtime_error("Can't negate anything that isn't number");
+                }
+                push_stack(CREATE_NUM_VAL(a.as.number));
+                break;
+            }
+            case OP_EQUAL: {
+                Value b = pop_stack();
+                Value a = pop_stack();
+                if (a.type != b.type) {
+                    push_stack(CREATE_BOOL_VAL(false));
+                    break;
+                }
+
+                if (is_string(a)) {
+                    push_stack(CREATE_BOOL_VAL(compare_string_values(a, b)));
+                    break;
+                } else if (is_number(a)) {
+                    push_stack(CREATE_BOOL_VAL(a.as.number == b.as.number));
+                    break;    
+                } else if (is_bool(a)) {
+                    push_stack(CREATE_BOOL_VAL(a.as.boolean == b.as.boolean));
+                    break;    
+                }
+                runtime_error("Can't compare unkown operand");
+                return INTEPRET_ERROR;
+            }
+            case OP_NOT_EQUAL: {
+                Value b = pop_stack();
+                Value a = pop_stack();
+                if (a.type != b.type) {
+                    push_stack(CREATE_BOOL_VAL(true));
+                    break;
+                }
+
+                if (is_string(a)) {
+                    push_stack(CREATE_BOOL_VAL(!compare_string_values(a, b)));
+                    break;
+                } else if (is_number(a)) {
+                    push_stack(CREATE_BOOL_VAL(a.as.number != b.as.number));
+                    break;    
+                } else if (is_bool(a)) {
+                    push_stack(CREATE_BOOL_VAL(a.as.boolean != b.as.boolean));
+                    break;    
+                }
+
+                runtime_error("Can't compare unkown operand");
+                return INTEPRET_ERROR;
+            }
+            case OP_MORE: NUMBER_COMPARSION(>); break;
+            case OP_MORE_EQUAL: NUMBER_COMPARSION(>=); break;
+            case OP_LESS: NUMBER_COMPARSION(<); break;
+            case OP_LESS_EQUAL: NUMBER_COMPARSION(<=); break;
+
+            case OP_NEGATE: {
+                Value a = pop_stack();
+                if (!is_number(a)) {
+                    runtime_error("Can negate only numbers ");
+                    return INTEPRET_ERROR;
+                }
+                push_stack(CREATE_BOOL_VAL(-a.as.boolean));
+                break;
+            } 
+            case OP_ADD: BINARY_NUMBER_OPERATION(+); break;
+            case OP_SUB: BINARY_NUMBER_OPERATION(-); break;
+            case OP_MUL: BINARY_NUMBER_OPERATION(*); break;
+            case OP_DIV: BINARY_NUMBER_OPERATION(/); break;
+            case OP_MOD: {
+                Value b = pop_stack(); 
+                Value a = pop_stack(); 
+                    
+                if (a.type != NumberValue || b.type != NumberValue) {
+                    runtime_error("Both operands are required to be numbers");
+                    return INTEPRET_ERROR;
+                }
+                long long int res = ((long long int) a.as.number) % ((long long int) b.as.number);
+                push_stack(CREATE_NUM_VAL(res));
+                break;
+            }
+            case OP_CONCAT: {
+                Value b = pop_stack();
+                Value a = pop_stack();
+                if (!(is_string(a) && is_string(b))) {
+                    runtime_error("Can concat only strings");
+                    return INTEPRET_ERROR;
+                }
+    
+                StringObj* obj = concat_strings((StringObj*) a.as.object, (StringObj*) b.as.object);
+                push_stack(CREATE_OBJ_VAL(obj));
+                break;
+            }
+            case OP_CONSTANT: push_stack(READ_CONSTANT); break;
+            case OP_PRINT: print_value(pop_stack()); break;
+            case OP_RETURN: return INTERPRET_OK;
         }
     }
 }
-
-
-/* static InterpretResult run(void) { */
-/*     for (;;) {     */
-/*         switch (READ_BYTE) { */
-/*             case OP_CONSTANT:   push_stack(READ_CONSTANT);      break; */
-/*             case OP_NEGATE:     push_stack(-pop_stack());   break; */
-/*             case OP_ADD:        BINARY_INSTRUCTION(+);      break; */
-/*             case OP_SUB:        BINARY_INSTRUCTION(-);      break; */
-/*             case OP_MUL:        BINARY_INSTRUCTION(*);      break; */
-/*             case OP_DIV:        BINARY_INSTRUCTION(/);      break; */
-/*             case OP_MOD:        mod_operator();      break; */
-/*             case OP_NOT:              push_stack(!pop_stack()); break; */
-/*             case OP_EQUAL:            BINARY_INSTRUCTION(==);      break; */
-/*             case OP_NOT_EQUAL:        BINARY_INSTRUCTION(!=);      break; */
-/*             case OP_LESS:           BINARY_INSTRUCTION(<);      break; */
-/*             case OP_LESS_EQUAL: BINARY_INSTRUCTION(<=);      break; */
-/*             case OP_MORE:       BINARY_INSTRUCTION(>);      break; */
-/*             case OP_MORE_EQUAL:     BINARY_INSTRUCTION(>=);      break; */
-/*             case OP_AND:            BINARY_INSTRUCTION(&&);      break; */
-/*             case OP_OR:            BINARY_INSTRUCTION(||);      break; */
-/*             case OP_PRINT:           */
-/*             case OP_RETURN:     return INTERPRET_OK; */
-/*             default: */
-/*                 printf("VM encounterd invalid instruction!\n"); */
-/*                 exit(-1); */
-/*         }  */
-/*     } */
-/* } */
 
 InterpretResult interpret(Chunk* chunk) {
     machine.chunk = chunk;

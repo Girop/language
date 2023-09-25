@@ -187,6 +187,7 @@ Token get_token(void) {
         case '=': return create_token(match_token('=') ? EQUAL_TOKEN : DOUBLE_EQUAL_TOKEN);
         case '&': return match_token('&') ? create_token(AND_TOKEN) : create_error("Expected second '&'");
         case '|': return match_token('|') ? create_token(AND_TOKEN) : create_error("Expected second '|'");
+        case '.': return match_token('.') ? create_token(CONCAT_TOKEN) : create_error("Unexpected .");
         case '\"': return parse_string();
 
         default: return create_error("Unexpected symbol");

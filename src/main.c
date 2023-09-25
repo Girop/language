@@ -11,7 +11,7 @@ int main(void) {
     // const char* source = "1 + 10 * ((10 + 1) + 2) + 3";
     const char* source = "1 + 2";
     Chunk chunk;
-    init_chunk(&chunk, "Virtual file");
+    init_chunk(&chunk);
 
     if (!compile(source, &chunk)) {
         printf("Compilation error occured\n");

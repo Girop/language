@@ -28,6 +28,8 @@ typedef enum {
     DOUBLE_EQUAL_TOKEN, // ==
     BANG_EQUAL_TOKEN, // !=
 
+    
+    CONCAT_TOKEN, // ..
     OR_TOKEN, // ||
     AND_TOKEN, // &&
 

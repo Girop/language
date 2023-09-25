@@ -3,19 +3,21 @@
 #include "chunk.h"
 
 typedef enum {
-    // Bool (sometimes number) operators 
-    OP_NEGATE,
+    // Bool only operators 
+    OP_NOT,
+    OP_OR,
+    OP_AND,
+
+    // Bool as result operators
     OP_EQUAL,
     OP_NOT_EQUAL,
     OP_MORE,
     OP_MORE_EQUAL,
     OP_LESS,
     OP_LESS_EQUAL,
-    OP_NOT,
-    OP_OR,
-    OP_AND,
 
     // Number operators
+    OP_NEGATE,
     OP_ADD,
     OP_SUB,
     OP_MUL,
@@ -28,8 +30,8 @@ typedef enum {
 
     // Special
     OP_CONSTANT,
-    OP_RETURN,
     OP_PRINT,
+    OP_RETURN,
 } OpCode;
 
 typedef enum {
