@@ -10,11 +10,10 @@ EXEC = main
 all: compiler
 
 compiler: $(OBJS)
-	$(CC) $^ -o $(EXEC) $(LDFLAGS)
-	@echo "Finshed"
+	@$(CC) $^ -o $(EXEC) $(LDFLAGS)
 
 %.o: %.c
-	@echo "Compiling $<"
+	@echo "Compiling: $<"
 	@$(CC) $(CFLAGS) -c $< -o $@ -MMD -MP
 
 .PHONY clean:

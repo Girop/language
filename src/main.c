@@ -5,26 +5,33 @@
 #include "common.h"
 #include "chunk.h"
 #include "parser.h"
+#include "structures/hash_table.h"
+
+// TODO pretty printing improvements
+// TODO variable (local and global) assigment
 
 int main(void) {
-    //const char* source = read_file("./test.txt");
-    // const char* source = "1 + 10 * ((10 + 1) + 2) + 3";
-    const char* source = "1 + 2";
+    FileDescriptor file = read_file("./test.txt");    
+
+    if (!file.is_read) {
+        printf("Read failure\n");
+        return EXIT_FAILURE;
+    }
+
     Chunk chunk;
     init_chunk(&chunk);
 
-    if (!compile(source, &chunk)) {
-        printf("Compilation error occured\n");
-        exit(-1);
+    if (!compile(file.content, &chunk)) {
+        printf("Compilation errors occured\n");
+        exit(EXIT_FAILURE);
     }
 
     disassemble_chunk(&chunk, "Test:");
-    // deb_last_value();
-    return -1;
+    return EXIT_SUCCESS;
 
     init_vm();
     interpret(&chunk);
 
-    free((char*) source);
-    printf("Finished\n");
+    free((char*) file.content);
+    return EXIT_SUCCESS;
 }

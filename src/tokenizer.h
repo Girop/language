@@ -3,13 +3,16 @@
 
 typedef enum {
     FUNC_TOKEN, // fnc
-    LOCAL_VARIABLE, // let 
-    GLOBAL_VARIABLE,
+    LOCAL_VAR_TOKEN, // let 
+    GLOBAL_VAR_TOKEN, // glob
+    PRINT_TOKEN, // print
+    NIL_TOKEN, // nil
 
     PLUS_TOKEN, // +
     MINUS_TOKEN, // -
     SLASH_TOKEN, // /
     STAR_TOKEN, // *
+    PERCENT_TOKEN, // %
     LEFT_PAREN, // (
     RIGHT_PAREN, // )
     LEFT_BRACE, // {
@@ -28,7 +31,6 @@ typedef enum {
     DOUBLE_EQUAL_TOKEN, // ==
     BANG_EQUAL_TOKEN, // !=
 
-    
     CONCAT_TOKEN, // ..
     OR_TOKEN, // ||
     AND_TOKEN, // &&
@@ -36,6 +38,8 @@ typedef enum {
     NUMBER_TOKEN,
     IDENTIFIER_TOKEN,
     STRING_TOKEN,
+    TRUE_TOKEN,
+    FALSE_TOKEN,
 
     INVALID_TOKEN,
     EOF_TOKEN,

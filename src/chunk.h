@@ -1,7 +1,7 @@
 #ifndef CHUNK_H
 #define CHUNK_H
 
-#include "data_structures/arrays.h"
+#include "structures/arrays.h"
 #include "values.h"
 
 // TODO lines

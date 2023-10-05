@@ -1,7 +1,7 @@
 #include "virtual_machine.h"
 #include "tokenizer.h"
-#include "parser.h"
 #include "chunk.h"
+#include "parser.h"
 
 typedef struct {
     Chunk* chunk;
@@ -9,24 +9,8 @@ typedef struct {
     bool had_error;
 } Parser;
 
-
 static Parser parser;
-#define emit_code(instruction) write_instruction(parser.chunk, instruction)
-
-typedef struct {
-    uint8_t left_bp;
-    uint8_t right_bp;
-} ParseRule;
-
-ParseRule parse_table[] = {
-    [PLUS_TOKEN] = {1, 2},
-    [MINUS_TOKEN] = {1, 2},
-    [SLASH_TOKEN] = {3, 4},
-    [STAR_TOKEN] = {3, 4},
-    [DOUBLE_EQUAL_TOKEN] = {5, 6},
-    [BANG_EQUAL_TOKEN] = {5, 6},
-    [EOF_TOKEN] = {0, 0}
-};
+#define emit_code(code) write_instruction(parser.chunk, code)
 
 static Token look(void) {
     return parser.current;
@@ -38,13 +22,109 @@ static Token consume(void) {
     return res;
 }
 
-static void parse_expr(uint8_t min_bp);
+static void discard_expected(TokenType expected_type, const char* msg) {
+    Token next = consume();
+    if (next.type == expected_type) return;
 
-static void parse_number(Token token) {
-    uint8_t addr = add_constant(parser.chunk, token.number);
+    printf("%s\n", msg);
+    exit(EXIT_FAILURE);
+}
+
+static bool check_type(TokenType type) {
+    return parser.current.type == type;
+}
+
+static bool match(TokenType type) {
+    if (!check_type(type)) return false;
+    consume();
+    return true;
+}
+
+static bool get_match(TokenType type, Token* res) {
+    if (!check_type(type)) return false;
+    *res = consume();
+    return true;
+}
+
+// Expression bottom - up parser
+typedef enum {
+    PREC_NONE,
+    PREC_BASIC,
+    PREC_ADDITIVE_LEFT,
+    PREC_ADDITIVE_RIGT,
+    PREC_MUL_LEFT,
+    PREC_MUL_RIGHT,
+    PREC_COMP_LEFT,
+    PREC_COMP_RIGHT,
+} Precedence;
+
+typedef struct {
+    Precedence left_bp;
+    Precedence right_bp;
+    OpCode code;
+} ParseRule;
+
+const ParseRule EXPRESSION_TABLE[] = {
+    [PLUS_TOKEN] = {PREC_ADDITIVE_LEFT, PREC_ADDITIVE_RIGT, OP_ADD},
+    [MINUS_TOKEN] = {PREC_ADDITIVE_LEFT, PREC_ADDITIVE_RIGT, OP_SUB},
+    [CONCAT_TOKEN] = {PREC_ADDITIVE_LEFT, PREC_ADDITIVE_RIGT, OP_CONCAT},
+    [SLASH_TOKEN] = {PREC_MUL_LEFT, PREC_MUL_RIGHT, OP_DIV},
+    [PERCENT_TOKEN] = {PREC_MUL_LEFT, PREC_MUL_RIGHT, OP_DIV},
+    [STAR_TOKEN] = {PREC_MUL_LEFT, PREC_MUL_RIGHT, OP_MUL},
+    [DOUBLE_EQUAL_TOKEN] = {PREC_COMP_LEFT, PREC_COMP_RIGHT, OP_EQUAL},
+    [BANG_EQUAL_TOKEN] = {PREC_COMP_LEFT, PREC_COMP_RIGHT, OP_NOT_EQUAL}, 
+    [LESS_TOKEN] = {PREC_COMP_LEFT, PREC_COMP_RIGHT, OP_LESS},
+    [LESS_EQUAL_TOKEN] = {PREC_COMP_LEFT, PREC_COMP_RIGHT, OP_LESS_EQUAL},
+    [MORE_TOKEN] = {PREC_COMP_LEFT, PREC_COMP_RIGHT, OP_MORE},
+    [MORE_EQUAL_TOKEN] = {PREC_COMP_LEFT, PREC_COMP_RIGHT, OP_MORE_EQUAL},
+};
+
+static void parse_expr(uint8_t min_bp);
+#define new_expression() parse_expr(PREC_BASIC)
+
+static uint8_t add_string_value(Token token) {
+    StringObj* identifier = create_string(token.string.position, token.string.len);
+    uint8_t glob_addr = add_constant(parser.chunk, from_string(identifier));
+
+    if (glob_addr > UINT8_MAX) {
+        printf("Too many constatns!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    return glob_addr;
+}
+
+static void parse_constant(Token token) {
+    Value val;
+    switch (token.type) {
+        case NUMBER_TOKEN:
+            val.type = NumberValue;
+            val.as.number = token.number;
+            break;
+        case TRUE_TOKEN:
+            val.type = BoolValue;
+            val.as.boolean = true;
+            break;
+        case FALSE_TOKEN:
+            val.type = BoolValue;
+            val.as.boolean = false; 
+            break;
+        case STRING_TOKEN:
+            val.type = ObjValue;
+            val.as.object = (Obj*) create_string(token.string.position, token.string.len);
+            break;
+        case NIL_TOKEN:
+            val.type = NilValue;
+            break;
+        default:
+            exit(EXIT_FAILURE);
+    } 
+
+    uint8_t addr = add_constant(parser.chunk, val);
+
     if (addr >= UINT8_MAX) {
         printf("Too many constants!\n");
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     emit_code(OP_CONSTANT);
@@ -52,58 +132,98 @@ static void parse_number(Token token) {
 }
 
 static void parse_primary(void) {
-    switch (parser.current.type) {
-        case LEFT_PAREN: 
-            consume(); 
-            parse_expr(0);
-            if (consume().type != RIGHT_PAREN) {
-                printf("Unclosed parentheses\n");
-                exit(-1);
-            }
-            break;
-        case NUMBER_TOKEN: parse_number(consume()); break;
-        default: printf("Parsing error\n"); exit(-1);
-    } 
+    Token res;
+    if (get_match(IDENTIFIER_TOKEN, &res)) {
+        uint8_t addr = add_string_value(res);
+
+        emit_code(OP_GET_GLOBAL);
+        emit_code(addr);
+        return;    
+    }
+
+    if (match(LEFT_PAREN)) {
+        new_expression();
+        discard_expected(RIGHT_PAREN, "Undelimited expression");
+        return;
+    }
+    parse_constant(consume());
 }
 
-static OpCode find_operator(Token tok) {
-    switch (tok.type) {
-        case PLUS_TOKEN: return OP_ADD;
-        case MINUS_TOKEN: return OP_SUB;
-        case SLASH_TOKEN: return OP_DIV;
-        case STAR_TOKEN: return OP_MUL;
-        case DOUBLE_EQUAL_TOKEN: return OP_EQUAL;
-        case BANG_EQUAL_TOKEN: return OP_NOT_EQUAL; 
-        default: return -1;
-    }
+static void parse_unary(void) {  
+    // TODO Parsing for: - !
+    /* for (;;) {      */
+    /*     if (match(BANG_TOKEN)) { */
+    /*      */
+    /*     } */
+    /*     if (match(MINUS_TOKEN)) {  */
+    /*          */
+    /*     } */
+    /* } */
+
+    parse_primary();
 }
 
 static void parse_expr(uint8_t min_bp) {
-    parse_primary();
+    parse_unary();
 
     for (;;) {
         Token op_tok = look();
-        OpCode operator = find_operator(op_tok);
-        if (operator == -1) return;
+        ParseRule rule = EXPRESSION_TABLE[op_tok.type];
 
-        ParseRule rule = parse_table[op_tok.type];
-        if (rule.left_bp < min_bp) {
-            break;
-        }
+        if (rule.code == -1) return;
+        if (rule.left_bp < min_bp) break;
 
         consume(); // operator
         parse_expr(rule.right_bp);
-        emit_code(operator);
+        emit_code(rule.code);
     }
 }
 
-bool compile(const char* source, Chunk* chunk) {
-    init_tokenizer(source); 
-    parser.current = get_token();
+// Statement parser
+static void parse_global(void) {
+    Token name = consume();
+    printf("Name: %d\n", name.type);
 
+    if (name.type != IDENTIFIER_TOKEN) {
+
+        printf("Expected global name\n");
+        exit(EXIT_FAILURE);
+    }
+
+    uint8_t glob_addr = add_string_value(name);
+    if (match(EQUAL_TOKEN)) {
+        new_expression();
+    } else {
+       parse_constant((Token) {.type = NIL_TOKEN});
+    }
+
+    emit_code(OP_NEW_GLOBAL);
+    emit_code(glob_addr);
+}
+
+static void parse_statement(void) {
+    if (match(PRINT_TOKEN)) {
+        new_expression();
+        emit_code(OP_PRINT);
+    } else if (match(GLOBAL_VAR_TOKEN)) { 
+        parse_global();
+    } else {
+        new_expression();
+        emit_code(OP_POP);
+    }
+    discard_expected(SEMICOLON_TOKEN, "Expected ';' at end of expected statement");
+}
+
+bool compile(const char* source, Chunk* chunk) {
+    init_tokenizer(source);
+
+    parser.current = get_token();
     parser.had_error = false;
     parser.chunk = chunk;
-    parse_expr(0);
+
+    while (!match(EOF_TOKEN)) {
+        parse_statement(); 
+    }
 
     emit_code(OP_RETURN);
     return !parser.had_error; // do something better than this

@@ -27,10 +27,15 @@ typedef enum {
     // String operators
     OP_CONCAT,
     // OP_EQUAL as well
+    
+    // Variable declarations
+    OP_CONSTANT,
+    OP_NEW_GLOBAL, // OP name_address value
+    OP_GET_GLOBAL,
 
     // Special
-    OP_CONSTANT,
     OP_PRINT,
+    OP_POP,
     OP_RETURN,
 } OpCode;
 

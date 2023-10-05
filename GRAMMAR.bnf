@@ -2,18 +2,25 @@ program := statement*;
 
 bool := "true" | "false";
 number := [1-9], [0-9]*;
+alphanumeric := [A-z] ([A-z] | number)*;
+string :=  """ alphanumeric """;
+variable := alphanumeric;
 
 expression := binary_log;
 binary_log := binary_comp ("||" | "&&" binary_comp)*;
 binary_comp := binary_add ("==" | "!=" | "<=" | "<" | ">" | ">=" binary_add)*;
 binary_add := binary_mul ("+" | "-" binary_mul)*;
 binary_mul := primary ("*" | "/" | "%" primary)*;
-primary := (("-")? number) | (("!")? bool) | "(" expression ")";
+primary := ("-" | "!")* (number | bool | "(" expression ")" | variable | string);
 
 
+statement := expression-statement
+            | print-stmt;
 
-statement := expression-statement | print-statement;
+declaration := fnc-decl
+            | glob-decl
+            | local-decl
+            | statement;
 
 expression-statement := expression ";";
 print-statement := "print" expression-statement;
-

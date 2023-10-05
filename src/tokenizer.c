@@ -110,15 +110,18 @@ static Token parse_string(void) {
     return res;
 }
 
-
 static const char* KEYWORDS[] = {
     [FUNC_TOKEN] = "fnc",
-    [LOCAL_VARIABLE] = "let",
-    [GLOBAL_VARIABLE] = "glob",
+    [LOCAL_VAR_TOKEN] = "let",
+    [GLOBAL_VAR_TOKEN] = "global",
+    [TRUE_TOKEN] = "true",
+    [FALSE_TOKEN] = "false",
+    [NIL_TOKEN] = "nil",
+    [PRINT_TOKEN] = "print",
 };
 
 static Token parse_identifier(void) {
-    for (;;) {
+    while (!is_end()) {
         char chr = look(); 
         if (isalpha(chr) || is_digit(chr)) {
             consume();
@@ -127,9 +130,12 @@ static Token parse_identifier(void) {
         }
     }
 
-    int len = tokenizer.current - tokenizer.start;
+    size_t len = tokenizer.current - tokenizer.start;
     for (int i = 0; i < (sizeof(KEYWORDS) / sizeof(char*)); i++) {
-        if (strncmp(tokenizer.start, KEYWORDS[i], len) == 0) {
+        const char* keyword = KEYWORDS[i];
+        if (keyword == NULL) continue;
+ 
+        if (strncmp(tokenizer.start, keyword, strlen(keyword)) == 0) {
             return create_token((TokenType) i); 
         }
     }
@@ -139,7 +145,6 @@ static Token parse_identifier(void) {
     res.string.len = len;
     return res;
 }
-
 
 static Token parse_number(void) {
     while (is_digit(look())) consume();
@@ -159,9 +164,7 @@ Token get_token(void) {
     tokenizer.start = tokenizer.current;
     char next_char;
 
-    if(is_end()) {
-        return create_token(EOF_TOKEN);
-    }
+    if(is_end()) return create_token(EOF_TOKEN);
 
     next_char = consume(); 
     if (is_digit(next_char)) return parse_number();
@@ -182,14 +185,13 @@ Token get_token(void) {
         case ',': return create_token(COMMA_TOKEN);
 
         case '!': return create_token(match_token('=') ? BANG_EQUAL_TOKEN : BANG_TOKEN);
-        case '<': return create_token(match_token('=') ? LESS_TOKEN : LESS_EQUAL_TOKEN);
-        case '>': return create_token(match_token('=') ? MORE_TOKEN : MORE_EQUAL_TOKEN);
-        case '=': return create_token(match_token('=') ? EQUAL_TOKEN : DOUBLE_EQUAL_TOKEN);
+        case '<': return create_token(match_token('=') ? LESS_EQUAL_TOKEN : LESS_TOKEN);
+        case '>': return create_token(match_token('=') ? MORE_EQUAL_TOKEN : MORE_TOKEN);
+        case '=': return create_token(match_token('=') ? DOUBLE_EQUAL_TOKEN : EQUAL_TOKEN);
         case '&': return match_token('&') ? create_token(AND_TOKEN) : create_error("Expected second '&'");
         case '|': return match_token('|') ? create_token(AND_TOKEN) : create_error("Expected second '|'");
         case '.': return match_token('.') ? create_token(CONCAT_TOKEN) : create_error("Unexpected .");
         case '\"': return parse_string();
-
         default: return create_error("Unexpected symbol");
     }
 }

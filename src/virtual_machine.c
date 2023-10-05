@@ -4,18 +4,23 @@
 
 #include "virtual_machine.h"
 #include "types.h"
+#include "structures/hash_table.h"
 
-#define STACK_SIZE 512
-typedef struct { 
+#define STACK_SIZE 1024
+
+typedef struct VirtualMachine VirtualMachine;
+struct VirtualMachine{ 
     Chunk* chunk;
     uint8_t* ip; 
     Value* stacktop; 
     Value value_stack[STACK_SIZE];
-} VirtualMachine;
-VirtualMachine machine;
+    HashTable globals;
+} machine;
 
 void init_vm(void) {
+    machine.chunk = NULL;
     machine.stacktop = machine.value_stack;
+    init_table(&machine.globals);
 }
 
 static Value pop_stack(void) {
@@ -33,16 +38,18 @@ static void runtime_error(const char* format, ...) {
     vfprintf(stderr, format, args);
     va_end(args);
     fputs("\n", stderr);
-
+    
     size_t instruction = machine.ip - machine.chunk->op_codes.values - 1;
     int line = machine.chunk->lines.values[instruction];
     
     fprintf(stderr, "[line %d] in script\n", line);
-    exit(-1); // TODO this can be done better
+    exit(EXIT_FAILURE); // TODO this can be done better
 }
 
 #define READ_BYTE (*(machine.ip++)) 
 #define READ_CONSTANT (machine.chunk->constants.values[READ_BYTE])
+
+
 
 #define CREATE_NUM_VAL(num) (Value) {.type = NumberValue, .as.number = (num)}
 #define CREATE_BOOL_VAL(boo) (Value) {.type = BoolValue, .as.boolean = (boo)}
@@ -57,7 +64,7 @@ static bool compare_string_values(Value a, Value b) {
     Value b = pop_stack(); \
     Value a = pop_stack(); \
                           \
-    if (a.type != NumberValue || b.type != NumberValue) { \
+    if (!(is_number(a) && is_number(b))) { \
         runtime_error("Both operands are required to be numbers"); \
         return INTEPRET_ERROR;\
     }  \
@@ -70,7 +77,7 @@ static bool compare_string_values(Value a, Value b) {
         Value b = pop_stack(); \
         Value a = pop_stack();\
         \
-        if (a.type != BoolValue || b.type != BoolValue) { \
+        if (!(is_bool(a) && is_bool(b))) { \
             runtime_error("Both operands are required to be booleans"); \
             return INTEPRET_ERROR; \
         }\
@@ -98,22 +105,6 @@ static bool compare_string_values(Value a, Value b) {
         }\
         push_stack(CREATE_BOOL_VAL(a.as.number operator b.as.number)); \
     } while (0)
-
-static void print_value(Value val) {
-    switch (val.type) {
-        case NumberValue:
-            printf("Number<%f>\n", val.as.number);
-        case NilValue:
-            printf("Nil\n");
-            break;
-        case BoolValue:
-            printf("Bool<%s>\n", val.as.boolean ? "true" : "false");
-            break;
-        case ObjValue:
-            printf("Object<TODO>,\n");
-            break;
-    }
-}
 
 static InterpretResult run(void) {
     for (;;) {
@@ -215,6 +206,22 @@ static InterpretResult run(void) {
             }
             case OP_CONSTANT: push_stack(READ_CONSTANT); break;
             case OP_PRINT: print_value(pop_stack()); break;
+            case OP_POP: pop_stack(); break;
+            case OP_NEW_GLOBAL: {
+                StringObj* name = get_string(READ_CONSTANT);
+                table_set(&machine.globals, name, pop_stack());
+                break;
+            }
+            case OP_GET_GLOBAL: {
+                StringObj* name = get_string(READ_CONSTANT);
+                Value result;
+                if (!table_get(&machine.globals, name, &result)) {
+                    printf("Undefined global\n"); 
+                    return INTEPRET_ERROR;
+                }
+                push_stack(result);
+                break;
+            }
             case OP_RETURN: return INTERPRET_OK;
         }
     }
