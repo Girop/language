@@ -105,7 +105,8 @@ static Token parse_string(void) {
     consume();
 
     Token res = create_token(STRING_TOKEN);
-    res.string.len = (unsigned int) (tokenizer.current - tokenizer.start - 2); // Adjusting for "
+    // Adjusting for " from both sides
+    res.string.len = (unsigned int) (tokenizer.current - tokenizer.start - 2); 
     res.string.position = tokenizer.start + 1;
     return res;
 }

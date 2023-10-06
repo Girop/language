@@ -9,7 +9,21 @@ typedef struct {
     bool had_error;
 } Parser;
 
+typedef struct {
+    Token name;
+    int depth;
+} Local;
+
+#define UINT8_COUNT (UINT8_MAX+1)
+typedef struct {
+    Local locals[UINT8_COUNT];
+    int local_count;
+    int scope_depth;
+} Compiler;
+
 static Parser parser;
+static Compiler* current_compiler;
+
 #define emit_code(code) write_instruction(parser.chunk, code)
 
 static Token look(void) {
@@ -44,6 +58,12 @@ static bool get_match(TokenType type, Token* res) {
     if (!check_type(type)) return false;
     *res = consume();
     return true;
+}
+
+static void init_compiler(Compiler* compiler) {
+    compiler->local_count = 0;
+    compiler->scope_depth = 0;
+    current_compiler = compiler;
 }
 
 // Expression bottom - up parser
@@ -216,6 +236,8 @@ static void parse_statement(void) {
 
 bool compile(const char* source, Chunk* chunk) {
     init_tokenizer(source);
+    Compiler compiler;
+    init_compiler(&compiler);
 
     parser.current = get_token();
     parser.had_error = false;
