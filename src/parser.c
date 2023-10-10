@@ -202,7 +202,6 @@ static void parse_expr(uint8_t min_bp) {
 // Statement parser
 static void parse_global(void) {
     Token name = consume();
-    printf("Name: %d\n", name.type);
 
     if (name.type != IDENTIFIER_TOKEN) {
 

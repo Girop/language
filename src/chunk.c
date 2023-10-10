@@ -60,6 +60,7 @@ static size_t data_instruction(const char* name, size_t offset, int arg_count, C
 
 
 // TODO line information
+// TODO use value string representation
 void disassemble_chunk(Chunk *chunk, const char* name) {
 
     printf("Chunk: %s\n", name);

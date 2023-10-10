@@ -26,8 +26,8 @@ int main(void) {
         exit(EXIT_FAILURE);
     }
 
-    disassemble_chunk(&chunk, "Test:");
-    return EXIT_SUCCESS;
+    /* disassemble_chunk(&chunk, "Test:"); */
+    /* return EXIT_SUCCESS; */
 
     init_vm();
     interpret(&chunk);

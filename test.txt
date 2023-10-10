@@ -1,0 +1,12 @@
+# fnc show_var() {
+#    print name;
+# }
+# glob name = "some name";
+# show_var()
+# global val = 10;
+
+
+global var = ((10 + 5) / 2);
+global l = var;
+global l = l + 20;
+print l;
